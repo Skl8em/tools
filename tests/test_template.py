@@ -239,6 +239,55 @@ def test_this_repository_uses_the_configuration_it_distributes(template: Path, t
     assert differing == [], "re-render them from the template: README, section 'Changing the template'"
 
 
+GIT_IDENTITY: Final = {
+    "GIT_AUTHOR_NAME": "test",
+    "GIT_AUTHOR_EMAIL": "test@example.invalid",
+    "GIT_COMMITTER_NAME": "test",
+    "GIT_COMMITTER_EMAIL": "test@example.invalid",
+}
+
+
+def git_commit_all(repository: Path, *tag: str) -> None:
+    environment = {**os.environ, **GIT_IDENTITY}
+    commands = [["git", "init", "--quiet"], ["git", "add", "--all"], ["git", "commit", "--quiet", "-m", "change"]]
+    for command in commands + ([["git", "tag", *tag]] if tag else []):
+        result = run(command, cwd=repository, env=environment)
+        assert result.returncode == 0, output(result)
+
+
+def test_update_merges_a_new_template_version_into_local_edits(template: Path, tmp_path: Path) -> None:
+    source = tmp_path / "template-repository"
+    shutil.copytree(template, source)
+    git_commit_all(source, "v0.1.0")
+    answers: Answers = {**BASE_ANSWERS, "languages": ["python", "markdown"], "python_skeleton": True}
+    project = rendered(source, tmp_path / "project", answers)
+    pyproject = (project / "pyproject.toml").read_text()
+    # The project edits a template-owned file, and deletes a skeleton file it owns.
+    with (project / ".gitignore").open("a") as gitignore:
+        gitignore.write("local-cache/\n")
+    (project / "tests/test_import.py").unlink()
+    git_commit_all(project)
+
+    # The template changes a configuration file, and the skeleton files a project owns.
+    ruff = source / "template/{% if use_python %}ruff.toml{% endif %}.jinja"
+    ruff.write_text(ruff.read_text().replace("line-length = 120", "line-length = 100"))
+    for skeleton in (
+        "template/{% if use_python and python_skeleton %}pyproject.toml{% endif %}.jinja",
+        "template/{% if use_python and python_skeleton %}tests{% endif %}/test_import.py.jinja",
+    ):
+        with (source / skeleton).open("a") as file:
+            file.write("# changed in v0.2.0\n")
+    git_commit_all(source, "v0.2.0")
+
+    result = run(["copier", "update", "--defaults", "--quiet"], cwd=project, env={**os.environ, **GIT_IDENTITY})
+    assert result.returncode == 0, output(result)
+    assert "line-length = 100" in (project / "ruff.toml").read_text()
+    assert "local-cache/" in (project / ".gitignore").read_text()
+    assert not (project / "tests/test_import.py").exists()
+    assert (project / "pyproject.toml").read_text() == pyproject
+    assert "_commit: v0.2.0" in (project / ".copier-answers.yml").read_text()
+
+
 def test_mkdevshell_refuses_an_unknown_language(tools_flake: str, tmp_path: Path) -> None:
     expression = (
         f'(builtins.getFlake "{tools_flake}").lib.mkDevShell'
