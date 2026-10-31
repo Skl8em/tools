@@ -1,0 +1,80 @@
+# The questions a project answers once; copier records them in
+# .copier-answers.yml and replays them on `copier update`.
+
+_subdirectory: template
+_min_copier_version: "9.15"
+
+# The Python skeleton belongs to the project from the moment it is created:
+# rendered on the first copy, never touched by an update, never written over an
+# existing file.
+_skip_if_exists:
+  - pyproject.toml
+_exclude:
+  - "{% if _copier_operation == 'update' %}pyproject.toml{% endif %}"
+  - "{% if _copier_operation == 'update' %}src{% endif %}"
+  - "{% if _copier_operation == 'update' %}tests{% endif %}"
+
+project_name:
+  type: str
+  help: Project name (also the Python distribution name)
+  validator: "{% if not project_name %}required{% endif %}"
+
+languages:
+  type: str
+  help: Languages the project uses
+  multiselect: true
+  choices:
+    Python: python
+    Markdown: markdown
+  default: [python, markdown]
+
+# Computed from `languages`, never asked nor recorded (`when: false`).
+use_python:
+  type: bool
+  default: "{{ 'python' in languages }}"
+  when: false
+use_markdown:
+  type: bool
+  default: "{{ 'markdown' in languages }}"
+  when: false
+
+python_skeleton:
+  type: bool
+  help: Create a new Python package (pyproject.toml, src/, tests/)? Answer no when adopting into an existing project
+  default: true
+  when: "{{ use_python }}"
+
+package_name:
+  type: str
+  help: Python import name
+  default: "{{ project_name | lower | replace('-', '_') | replace(' ', '_') }}"
+  when: "{{ use_python and python_skeleton }}"
+  validator: "{% if not package_name.isidentifier() %}must be a Python identifier{% endif %}"
+
+python_min:
+  type: str
+  help: Oldest Python version the project supports (requires-python, and what the checkers target)
+  default: "3.12"
+  when: "{{ use_python }}"
+  validator: "{% if python_min.split('.') | length != 2 %}major.minor, e.g. 3.12{% endif %}"
+
+copyright_holder:
+  type: str
+  help: Copyright holder, as written in REUSE.toml
+  validator: "{% if not copyright_holder %}required{% endif %}"
+
+license:
+  type: str
+  help: SPDX identifier of the project's licence
+  default: GPL-3.0-or-later
+
+tools_flake:
+  type: str
+  help: Flake reference of the tools repository the devShell comes from, e.g. github:<owner>/tools
+  validator: "{% if not tools_flake %}required{% endif %}"
+
+_message_after_copy: |
+  Next, inside the project:
+    git init && git add --all   # nix sees only the files git tracks
+    nix develop --command just setup
+    nix develop --command just check

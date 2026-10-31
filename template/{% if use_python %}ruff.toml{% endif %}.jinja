@@ -1,0 +1,8 @@
+# Rendered from the tools template: change it there, then `copier update`.
+# Read by `just check` and by the editors' Ruff. It takes precedence over any
+# [tool.ruff] table in pyproject.toml, which Ruff then ignores.
+line-length = 120
+target-version = "py{{ python_min | replace('.', '') }}"
+
+[lint]
+select = ["E", "W", "F", "I", "UP", "B", "PT", "RUF", "SIM"]

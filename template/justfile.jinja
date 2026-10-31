@@ -1,0 +1,52 @@
+# The project's recipes, run inside its devShell: `nix develop --command just <recipe>`.
+# Rendered from the tools template: change it there, then `copier update`.
+
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+# List the recipes
+default:
+    @just --list
+
+# Lock the tools, build the environment, fetch the licence texts
+setup: _devshell
+{%- if use_python %}
+    uv add --dev "basedpyright>=1.40" "pytest>=9.1" "ruff>=0.17"
+{%- endif %}
+    reuse download --all
+
+# The gate: CI runs exactly this
+check: _devshell lint{% if use_python %} typecheck test{% endif %} licensing
+
+# Rewrite what the formatters and linters can fix
+fix: _devshell
+{%- if use_python %}
+    uv run --locked ruff format .
+    uv run --locked ruff check --fix .
+{%- endif %}
+{%- if use_markdown %}
+    markdownlint-cli2 --fix
+{%- endif %}
+
+lint: _devshell
+{%- if use_python %}
+    uv run --locked ruff format --check .
+    uv run --locked ruff check .
+{%- endif %}
+{%- if use_markdown %}
+    markdownlint-cli2
+{%- endif %}
+{%- if use_python %}
+
+typecheck: _devshell
+    uv run --locked basedpyright
+
+test: _devshell
+    uv run --locked pytest
+{%- endif %}
+
+licensing: _devshell
+    reuse lint
+
+# A tool found elsewhere on the PATH would run at another version than CI's.
+_devshell:
+    @[ "${TOOLS_DEVSHELL:-}" = 1 ] || {{ '{' }} echo "run inside the devShell: nix develop --command just <recipe>" >&2; exit 1; }

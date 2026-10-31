@@ -1,0 +1,26 @@
+# Rendered from the tools template: change it there, then `copier update`.
+# The toolchain comes from the tools flake; `nix flake update tools` bumps it.
+{
+  description = "{{ project_name }}";
+
+  inputs.tools.url = "{{ tools_flake }}";
+
+  outputs =
+    { tools, ... }:
+    {
+      devShells = tools.lib.forAllSystems (system: {
+        default = tools.lib.mkDevShell {
+          inherit system;
+{%- if languages | length == 1 %}
+          languages = [ "{{ languages[0] }}" ];
+{%- else %}
+          languages = [
+{%- for language in languages %}
+            "{{ language }}"
+{%- endfor %}
+          ];
+{%- endif %}
+        };
+      });
+    };
+}

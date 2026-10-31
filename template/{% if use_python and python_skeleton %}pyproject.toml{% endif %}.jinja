@@ -1,0 +1,18 @@
+[project]
+name = "{{ project_name }}"
+version = "0.1.0"
+description = ""
+requires-python = ">={{ python_min }}"
+dependencies = []
+
+[build-system]
+requires = ["uv_build>=0.11,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "{{ package_name }}"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-markers", "--strict-config", "-ra"]
+xfail_strict = true

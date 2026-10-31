@@ -1,0 +1,14 @@
+{%- set extensions = [] %}
+{%- if use_python %}{% set extensions = extensions + ["detachhead.basedpyright", "charliermarsh.ruff"] %}{% endif %}
+{%- if use_markdown %}{% set extensions = extensions + ["DavidAnson.vscode-markdownlint"] %}{% endif -%}
+{
+  // Rendered from the tools template: change it there, then `copier update`.
+  // All of them are on Open VSX too, so VSCodium installs the same ones.
+  "recommendations": [
+{%- for extension in extensions %}
+    "{{ extension }}"{% if not loop.last %},{% endif %}
+{%- endfor %}
+  ]{% if use_python %},
+  // Pylance is closed-source and bundles a pyright the project cannot pin.
+  "unwantedRecommendations": ["ms-python.vscode-pylance"]{% endif %}
+}
