@@ -1,0 +1,30 @@
+# Licensing of every file in this repository (https://reuse.software), checked
+# by `just check`. When several annotations match a file, the last one wins, so
+# the default comes first and the exceptions follow it.
+version = 1
+
+# This repository's own code, tests, build and documentation: GPL-3.0-or-later.
+[[annotations]]
+path = "**"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Benjamin Claverie"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# What a project receives — the template, and the configuration files this
+# repository mirrors from it: CC0, so a project under any licence carries no
+# condition from this one.
+[[annotations]]
+path = [
+  "copier.yml",
+  "template/**",
+  ".github/**",
+  ".gitignore",
+  ".markdownlint-cli2.jsonc",
+  ".vscode/**",
+  ".zed/**",
+  "pyrightconfig.json",
+  "ruff.toml",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Benjamin Claverie"
+SPDX-License-Identifier = "CC0-1.0"
