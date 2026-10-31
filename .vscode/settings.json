@@ -1,0 +1,31 @@
+{
+  // Rendered from the tools template: change it there, then `copier update`.
+  // The rules live in the tools' own files (ruff.toml, pyrightconfig.json,
+  // .markdownlint-cli2.jsonc), which `just check` reads too; this file only
+  // says which binaries the editor runs.
+
+  // The interpreter, and the tools uv locks into .venv (`just setup`) at the versions CI runs.
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  // basedpyright, not Pylance, checks types.
+  "python.analysis.typeCheckingMode": "off",
+  "basedpyright.importStrategy": "fromEnvironment",
+  // Ruff by path: a missing .venv is an error, not a silent fallback to the extension's own copy.
+  "ruff.path": ["${workspaceFolder}/.venv/bin/ruff"],
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ruff": "explicit",
+      "source.organizeImports.ruff": "explicit"
+    }
+  },
+
+  // The markdownlint extension reads .markdownlint-cli2.jsonc but runs the engine it
+  // bundles, which can be newer than the CLI the devShell pins: a rule the CLI does
+  // not know yet can show in the editor only.
+  "[markdown]": {
+    "editor.codeActionsOnSave": {
+      "source.fixAll.markdownlint": "explicit"
+    }
+  }
+}

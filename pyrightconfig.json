@@ -1,0 +1,13 @@
+{
+  // Rendered from the tools template: change it there, then `copier update`.
+  // Read by `just check` and by the editors' basedpyright. It takes precedence
+  // over any [tool.basedpyright] table in pyproject.toml.
+  // The oldest supported version, not the devShell's interpreter.
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "strict",
+  // Any is refused wherever it appears, not only when implicit.
+  "reportAny": "error",
+  "reportExplicitAny": "error",
+  "venvPath": ".",
+  "venv": ".venv"
+}

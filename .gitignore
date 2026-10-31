@@ -1,0 +1,8 @@
+# Rendered from the tools template: change it there, then `copier update`.
+.direnv/
+result
+.venv/
+__pycache__/
+dist/
+# Claude Code's per-user settings
+.claude/settings.local.json

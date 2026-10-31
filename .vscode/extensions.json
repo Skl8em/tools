@@ -1,0 +1,11 @@
+{
+  // Rendered from the tools template: change it there, then `copier update`.
+  // All of them are on Open VSX too, so VSCodium installs the same ones.
+  "recommendations": [
+    "detachhead.basedpyright",
+    "charliermarsh.ruff",
+    "DavidAnson.vscode-markdownlint"
+  ],
+  // Pylance is closed-source and bundles a pyright the project cannot pin.
+  "unwantedRecommendations": ["ms-python.vscode-pylance"]
+}

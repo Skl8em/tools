@@ -1,0 +1,18 @@
+{
+  // Rendered from the tools template: change it there, then `copier update`.
+  // The rules live in the tools' own files, which `just check` reads too.
+  "languages": {
+    // Zed runs a language server installed in the project's .venv (`just setup`)
+    // in place of its own copy.
+    "Python": {
+      "language_servers": ["basedpyright", "ruff", "!pyright", "!pylsp", "!ty"],
+      "formatter": { "language_server": { "name": "ruff" } },
+      "code_actions_on_format": { "source.organizeImports.ruff": true },
+      "format_on_save": "on"
+    },
+    // Zed formats with Prettier, whose Markdown style markdownlint does not check.
+    "Markdown": {
+      "format_on_save": "off"
+    }
+  }
+}

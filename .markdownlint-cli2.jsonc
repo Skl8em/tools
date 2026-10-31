@@ -1,0 +1,15 @@
+{
+  // Rendered from the tools template: change it there, then `copier update`.
+  // Read by `just check` (markdownlint-cli2, pinned by the devShell) and by the
+  // VS Code extension, which bundles its own markdownlint engine.
+  "config": {
+    "default": true,
+    // One sentence per line makes a line as long as its sentence.
+    "MD013": false,
+    // Sections may share a name under different parents.
+    "MD024": { "siblings_only": true }
+  },
+  // Every Markdown file git does not ignore (so not .venv's).
+  "globs": ["**/*.md"],
+  "gitignore": true
+}
