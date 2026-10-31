@@ -1,0 +1,7 @@
+{
+  "project_name": "tools",
+  "languages": ["python", "markdown"],
+  "python_skeleton": false,
+  "copyright_holder": "Benjamin Claverie",
+  "tools_flake": "github:example/tools"
+}
