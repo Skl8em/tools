@@ -253,7 +253,9 @@ def test_mkdevshell_refuses_an_unknown_language(tools_flake: str, tmp_path: Path
 
 
 def in_project_shell(project: Path, *command: str) -> subprocess.CompletedProcess[str]:
-    return run(["nix", "develop", str(project), "--command", *command], cwd=project)
+    # This repository's own .venv, active under `uv run`, is not the project's.
+    environment = {key: value for key, value in os.environ.items() if key != "VIRTUAL_ENV"}
+    return run(["nix", "develop", str(project), "--command", *command], cwd=project, env=environment)
 
 
 def committed(project: Path) -> None:
@@ -303,7 +305,7 @@ def planted(python_project: Path, request: pytest.FixtureRequest) -> Iterator[Pa
 @pytest.mark.parametrize(
     ("planted", "diagnostic"),
     [
-        pytest.param(("src/example_project/bad.py", "x=1\n"), "Would reformat", id="unformatted python"),
+        pytest.param(("src/example_project/bad.py", "x=1\n"), "would be reformatted", id="unformatted python"),
         pytest.param(("src/example_project/bad.py", "import os\n"), "F401", id="lint error"),
         pytest.param(
             ("src/example_project/bad.py", "def double(x):\n    return x * 2\n"),
