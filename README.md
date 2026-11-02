@@ -22,12 +22,13 @@ Tools in use:
 - reuse
 - ruff
 - basedpyright
+- ty
 - markdownlint
 - pytest
 
 IDEs to support:
 
-- VS Code (and/or VSCodium)
+- VS Code
 - Zed
 
 Principles:
@@ -47,10 +48,10 @@ Three things must agree for the editor and CI to report the same thing, and this
 1. **Tool versions** come from one place.
    `flake.nix` exports `lib.mkDevShell`, which a project's own `flake.nix` calls with the languages it uses.
    The versions are those of this repository's nixpkgs pin, so `nix flake update tools` in a project is the one way they change.
-   Python tools (ruff, basedpyright, pytest) are locked in the project's `uv.lock`, in a `.venv` built on the devShell's interpreter.
+   Python tools (ruff, basedpyright, ty, pytest) are locked in the project's `uv.lock`, in a `.venv` built on the devShell's interpreter.
 2. **Configuration** lives in the project, rendered from [`template/`](template) by [Copier](https://copier.readthedocs.io), which records the answers in `.copier-answers.yml`.
    `copier update` merges a newer template into the project three ways, keeping the project's own edits.
-   The rules live in the tools' own files (`ruff.toml`, `pyrightconfig.json`, `.markdownlint-cli2.jsonc`); `.vscode/settings.json` and `.zed/settings.json` only point the editors at the `.venv` binaries.
+   The rules live in the tools' own files (`ruff.toml`, `pyrightconfig.json`, `ty.toml`, `.markdownlint-cli2.jsonc`); `.vscode/settings.json` and `.zed/settings.json` only point the editors at the `.venv` binaries.
 3. **Invocation** is the same everywhere: `just check`, inside the devShell, locally and in CI (`.github/workflows/checks.yml`).
    The justfile refuses to run outside the devShell, where another version of a tool could be on the PATH.
 
@@ -64,7 +65,7 @@ A project gets:
 | `REUSE.toml` | template | the project's licence for every file without its own header |
 | `.vscode/settings.json`, `.vscode/extensions.json` | template | VS Code runs the `.venv` binaries |
 | `.zed/settings.json` | template | Zed runs the same language servers |
-| `ruff.toml`, `pyrightconfig.json` | template | Python rules (Python projects) |
+| `ruff.toml`, `pyrightconfig.json`, `ty.toml` | template | Python rules (Python projects) |
 | `.markdownlint-cli2.jsonc` | template | Markdown rules (Markdown projects) |
 | `pyproject.toml`, `src/<package>/`, `tests/test_import.py` | project | skeleton of a new package, rendered once, never updated |
 
@@ -86,7 +87,7 @@ nix develop --command just check
 The `tools_flake` question asks for the flake reference of this repository, e.g. `github:<owner>/tools` or `git+file:///Users/bnc/Documents/Projects/tools`.
 
 An existing project: answer *no* to the Python skeleton question, then review `git diff`, since Copier asks before overwriting a file the project already has.
-Move any `[tool.ruff]` or `[tool.basedpyright]` table out of `pyproject.toml`: `ruff.toml` and `pyrightconfig.json` take precedence and those tables would be silently ignored.
+Move any `[tool.ruff]`, `[tool.basedpyright]` or `[tool.ty]` table out of `pyproject.toml`: `ruff.toml`, `pyrightconfig.json` and `ty.toml` take precedence and those tables would be silently ignored.
 
 Later:
 
@@ -105,21 +106,21 @@ nix develop --command just check       # everything, including rendering project
 
 Tag a release (`git tag v0.2.0`) for projects to receive it through `copier update`.
 
-This repository uses the configuration it distributes: a test fails when its own `ruff.toml`, `pyrightconfig.json`, `.markdownlint-cli2.jsonc`, `.gitignore`, `.vscode/`, `.zed/` or CI workflow differ from what the template renders with [`tests/repo-answers.json`](tests/repo-answers.json).
+This repository uses the configuration it distributes: a test fails when its own `ruff.toml`, `pyrightconfig.json`, `ty.toml`, `.markdownlint-cli2.jsonc`, `.gitignore`, `.vscode/`, `.zed/` or CI workflow differ from what the template renders with [`tests/repo-answers.json`](tests/repo-answers.json).
 To re-render them after a template change:
 
 ```sh
 tmp=$(mktemp -d) && cp -r copier.yml template "$tmp/" \
   && copier copy --defaults --quiet --data-file tests/repo-answers.json "$tmp" "$tmp/out" \
   && for f in .github/workflows/checks.yml .gitignore .markdownlint-cli2.jsonc .vscode/extensions.json \
-      .vscode/settings.json .zed/settings.json pyrightconfig.json ruff.toml; do cp "$tmp/out/$f" "$f"; done
+      .vscode/settings.json .zed/settings.json pyrightconfig.json ruff.toml ty.toml; do cp "$tmp/out/$f" "$f"; done
 ```
 
 Adding a language means an entry in `byLanguage` in [`nix/dev-shell.nix`](nix/dev-shell.nix), a choice in `copier.yml`, its files in `template/`, and the tests that render them.
 
 ## Decisions
 
-Decisions taken outside this repository that it must follow (type checking with ty beside basedpyright, editor extensions, git identity) are in [UPSTREAM-DECISIONS.md](UPSTREAM-DECISIONS.md), until they are applied and folded in here.
+Decisions taken outside this repository that it must follow are in [UPSTREAM-DECISIONS.md](UPSTREAM-DECISIONS.md) until they are applied, then folded in here.
 
 - **[ANCHOR]** Configuration is distributed as a Copier template and the toolchain as a Nix flake, both versioned together in this repository.
   A dedicated Python package with its own CLI was rejected: it would re-implement copy, update and the three-way merge.
@@ -128,12 +129,22 @@ Decisions taken outside this repository that it must follow (type checking with 
   From 26.11 on, an Intel Mac can no longer follow nixpkgs updates; the pin can stay, but its tools will age.
 - Copier (MIT) and most current tools are permissively licensed, not GPL; no GPL alternative of similar scope was found.
 - Upstream Nix in CI (`cachix/install-nix-action`), not a vendor distribution; actions are pinned by commit.
+- **[ANCHOR]** Python type checking: basedpyright (strict, `reportAny`) and ty (`all = "error"`) both run and both are gates, in `just check` and side by side in the editors; ruff's `ANN` rules check annotations so that they outlive basedpyright (owner's record 0003, 2026-11-02).
+  basedpyright is removed when ty has left beta, ty with ruff `ANN` catches every function of the record's probe that basedpyright catches, and no basedpyright-only finding remains unexplained on the projects running both; checked at each ty minor release.
+  The probe is a strict `xfail` test (`test_ty_with_ruff_annotations_catches_every_function_basedpyright_catches`), so the gate turns red on the ty bump that closes the gap.
+  It compares functions, not lines: ty reports an `Any` where it is returned, basedpyright where it enters.
+  In VS Code, ty serves the language features and basedpyright only reports (`basedpyright.disableLanguageServices`); the Python extension's language server is off.
+- Editor extensions (owner's decision, 2026-11-02): a rendered project recommends only extensions of the owner's VS Code base stack, so it suits a public repository, whose contributors lack that stack, and a private one alike.
+  `ms-python.python` is among them, since `python.defaultInterpreterPath` and `python.languageServer` are its settings; a test fails when a recommendation falls outside the base stack, which then needs a `//` reason in `extensions.json`.
+- Editors are VS Code and Zed; VSCodium is no longer used (2026-11-02), but every recommended extension is checked to be on Open VSX for contributors who use it.
 - Licensing: this repository's code is GPL-3.0-or-later; what projects receive (the template and the files mirrored from it) is CC0-1.0, so it imposes nothing on a project's own licence.
 
 ## Known gaps
 
 - The VS Code markdownlint extension bundles its own markdownlint engine, which can be newer than the CLI the devShell pins; Zed has no markdownlint integration here.
   [rumdl](https://github.com/rvben/rumdl) (Rust, MIT, has a language server) could close both gaps: worth evaluating.
+- ty does not yet catch an implicit `Any` entering at an untyped boundary (`json.loads`) and spreading through variables and arguments; basedpyright does, which is why both run.
+  Measured with ty 0.0.95 and basedpyright 1.40.2.
 - `.venv` links to the devShell's interpreter in the Nix store; after `nix-collect-garbage`, re-run `just setup`.
 - Projects whose CI is not GitHub Actions need their own workflow file.
 

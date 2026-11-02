@@ -1,5 +1,5 @@
 {%- set extensions = [] %}
-{%- if use_python %}{% set extensions = extensions + ["detachhead.basedpyright", "charliermarsh.ruff"] %}{% endif %}
+{%- if use_python %}{% set extensions = extensions + ["detachhead.basedpyright", "astral-sh.ty", "charliermarsh.ruff", "ms-python.python"] %}{% endif %}
 {%- if use_markdown %}{% set extensions = extensions + ["DavidAnson.vscode-markdownlint"] %}{% endif -%}
 {
   // Rendered from the tools template: change it there, then `copier update`.

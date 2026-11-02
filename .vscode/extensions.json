@@ -3,7 +3,9 @@
   // All of them are on Open VSX too, so VSCodium installs the same ones.
   "recommendations": [
     "detachhead.basedpyright",
+    "astral-sh.ty",
     "charliermarsh.ruff",
+    "ms-python.python",
     "DavidAnson.vscode-markdownlint"
   ],
   // Pylance is closed-source and bundles a pyright the project cannot pin.

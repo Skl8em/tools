@@ -24,6 +24,7 @@ path = [
   ".zed/**",
   "pyrightconfig.json",
   "ruff.toml",
+  "ty.toml",
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Benjamin Claverie"

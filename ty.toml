@@ -1,0 +1,13 @@
+# Rendered from the tools template: change it there, then `copier update`.
+# Read by `just check` and by the editors' ty. It takes precedence over any
+# [tool.ty] table in pyproject.toml.
+# ty runs beside basedpyright until it can replace it: basedpyright alone catches an
+# implicit Any spreading from an untyped boundary (json.loads) through variables.
+
+[environment]
+# The oldest supported version, not the devShell's interpreter.
+python-version = "3.12"
+
+[rules]
+# Every rule, those off by default included (unsound-return-statement catches an Any returned).
+all = "error"

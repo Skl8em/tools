@@ -10,7 +10,7 @@ default:
 # Lock the tools, build the environment, fetch the licence texts
 setup: _devshell
 {%- if use_python %}
-    uv add --dev "basedpyright>=1.40" "pytest>=9.1" "ruff>=0.17"
+    uv add --dev "basedpyright>=1.40" "pytest>=9.1" "ruff>=0.17" "ty>=0.0.95"
 {%- endif %}
     reuse download --all
 
@@ -37,8 +37,9 @@ lint: _devshell
 {%- endif %}
 {%- if use_python %}
 
+# basedpyright and ty, both gates; the second runs even when the first fails
 typecheck: _devshell
-    uv run --locked basedpyright
+    status=0; uv run --locked basedpyright || status=$?; uv run --locked ty check || status=$?; exit $status
 
 test: _devshell
     uv run --locked pytest

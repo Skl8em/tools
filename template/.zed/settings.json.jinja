@@ -3,10 +3,11 @@
   // The rules live in the tools' own files, which `just check` reads too.
   "languages": {
 {%- if use_python %}
-    // Zed runs a language server installed in the project's .venv (`just setup`)
-    // in place of its own copy.
+    // Zed runs a built-in language server installed in the project's .venv
+    // (`just setup`) in place of its own copy. ty is off by default in Zed, so it
+    // is named; it runs beside basedpyright, as `just check` does.
     "Python": {
-      "language_servers": ["basedpyright", "ruff", "!pyright", "!pylsp", "!ty"],
+      "language_servers": ["basedpyright", "ty", "ruff", "!pyright", "!pylsp"],
       "formatter": { "language_server": { "name": "ruff" } },
       "code_actions_on_format": { "source.organizeImports.ruff": true },
       "format_on_save": "on"

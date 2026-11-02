@@ -17,11 +17,12 @@ Expect it to be slow; a run time worth caching is a reason to look at a self-hos
 
 Done when: the workflow is green on `main`.
 Done: green on 2026-10-31 (run 41235110152, 1 min 34 s).
+Red once since, on 2026-11-02: ruff formats the Python blocks of Markdown files too, which the type-checking probe in UPSTREAM-DECISIONS was not.
 
 ## 2. Tag `v0.1.0`
 
 Only after CI is green, since projects receive the tag, not `main`.
-Before it: the history rewrite of [UPSTREAM-DECISIONS](UPSTREAM-DECISIONS.md) D4, since an adopted project records the template version it came from, and preferably the template changes of D1 to D3, so the first release carries them.
+Before it: the history rewrite of [UPSTREAM-DECISIONS](UPSTREAM-DECISIONS.md) D4, since an adopted project records the template version it came from, The template changes it asked for (type checking with ty, editor extensions) are in.
 Check that `copier copy <tools> .` without `--vcs-ref` renders it.
 
 ## 3. Adopt into one real existing project
@@ -45,8 +46,9 @@ The first option is the current default; the decision belongs to the owner of th
 
 ## 5. One source for the Python tool lower bounds
 
-`basedpyright>=1.40`, `pytest>=9.1`, `ruff>=0.17` are written twice: in `template/justfile.jinja` (what `just setup` adds to a project) and in this repository's `pyproject.toml`.
-Add a test that fails when they differ, before the first bump makes them differ.
+`basedpyright>=1.40`, `pytest>=9.1`, `ruff>=0.17`, `ty>=0.0.95` are written twice: in `template/justfile.jinja` (what `just setup` adds to a project) and in this repository's `pyproject.toml`.
+
+Done: `test_the_python_tool_lower_bounds_are_the_same_here_and_in_the_template` fails when they differ.
 
 ## 6. Evaluate rumdl
 

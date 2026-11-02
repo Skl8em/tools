@@ -4,10 +4,13 @@ These tests run copier and nix from this repository's devShell, at the versions
 a project will run them: `nix develop --command just test`.
 """
 
+import ast
 import json
 import os
 import shutil
 import subprocess
+import sys
+import tomllib
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Final, TypeGuard
@@ -35,7 +38,7 @@ COMMON_FILES: Final = {
     "flake.nix",
     "justfile",
 }
-PYTHON_CONFIG_FILES: Final = {"ruff.toml", "pyrightconfig.json"}
+PYTHON_CONFIG_FILES: Final = {"ruff.toml", "pyrightconfig.json", "ty.toml"}
 PYTHON_SKELETON_FILES: Final = {
     "pyproject.toml",
     "src/example_project/__init__.py",
@@ -55,6 +58,7 @@ MIRRORED_FILES: Final = (
     ".zed/settings.json",
     "pyrightconfig.json",
     "ruff.toml",
+    "ty.toml",
 )
 REPO_ANSWERS_FILE: Final = ROOT / "tests" / "repo-answers.json"
 
@@ -181,14 +185,20 @@ def test_no_template_syntax_is_left_unrendered(template: Path, tmp_path: Path) -
     [
         pytest.param(
             ["python", "markdown"],
-            {"detachhead.basedpyright", "charliermarsh.ruff", "davidanson.vscode-markdownlint"},
+            {
+                "detachhead.basedpyright",
+                "astral-sh.ty",
+                "charliermarsh.ruff",
+                "ms-python.python",
+                "davidanson.vscode-markdownlint",
+            },
             set[str](),
             id="python+markdown",
         ),
         pytest.param(
             ["markdown"],
             {"davidanson.vscode-markdownlint"},
-            {"detachhead.basedpyright", "charliermarsh.ruff"},
+            {"detachhead.basedpyright", "astral-sh.ty", "charliermarsh.ruff", "ms-python.python"},
             id="markdown only",
         ),
     ],
@@ -204,6 +214,174 @@ def test_vscode_recommends_the_extensions_of_the_selected_languages(
     lowered = {str(item).lower() for item in recommendations}
     assert recommended <= lowered
     assert not (not_recommended & lowered)
+
+
+# The owner's VS Code base stack (UPSTREAM-DECISIONS D2), Claude Code aside: a rendered project
+# is often public, and contributors don't have the base stack, so it recommends from this list.
+# An extension outside it needs a `//` reason in extensions.json, and an entry here.
+BASE_STACK: Final = {
+    "anthropic.claude-code",
+    "astral-sh.ty",
+    "detachhead.basedpyright",
+    "charliermarsh.ruff",
+    "ms-python.python",
+    "ms-python.debugpy",
+    "ms-python.vscode-python-envs",
+    "tamasfe.even-better-toml",
+    "davidanson.vscode-markdownlint",
+}
+
+
+def test_vscode_recommends_only_extensions_of_the_base_stack(template: Path, tmp_path: Path) -> None:
+    project = rendered(template, tmp_path / "project", {**BASE_ANSWERS, "languages": ["python", "markdown"]})
+    extensions = load_jsonc(project / ".vscode/extensions.json")
+    assert is_mapping(extensions)
+    recommendations = extensions.get("recommendations")
+    assert is_list(recommendations)
+    assert {str(item).lower() for item in recommendations} - BASE_STACK == set()
+
+
+def test_vscode_runs_ty_and_basedpyright_from_the_venv_and_no_other_language_server(
+    template: Path, tmp_path: Path
+) -> None:
+    project = rendered(template, tmp_path / "project", {**BASE_ANSWERS, "languages": ["python"]})
+    settings = load_jsonc(project / ".vscode/settings.json")
+    assert is_mapping(settings)
+    assert settings.get("ty.path") == ["${workspaceFolder}/.venv/bin/ty"]
+    assert settings.get("ruff.path") == ["${workspaceFolder}/.venv/bin/ruff"]
+    assert settings.get("basedpyright.importStrategy") == "fromEnvironment"
+    # ty serves completion, hover and go-to; basedpyright reports diagnostics only.
+    assert settings.get("basedpyright.disableLanguageServices") is True
+    assert settings.get("python.languageServer") == "None"
+
+
+def test_zed_runs_ty_beside_basedpyright(template: Path, tmp_path: Path) -> None:
+    project = rendered(template, tmp_path / "project", {**BASE_ANSWERS, "languages": ["python"]})
+    settings = load_jsonc(project / ".zed/settings.json")
+    assert is_mapping(settings)
+    languages = settings.get("languages")
+    assert is_mapping(languages)
+    python = languages.get("Python")
+    assert is_mapping(python)
+    servers = python.get("language_servers")
+    assert is_list(servers)
+    assert {"basedpyright", "ty", "ruff"} <= set(servers)
+    assert "!ty" not in servers
+
+
+def python_tool_bounds(requirements: list[str]) -> dict[str, str]:
+    """`name>=version` requirements, by name."""
+    bounds: dict[str, str] = {}
+    for requirement in requirements:
+        name, _, version = requirement.partition(">=")
+        bounds[name] = version
+    return bounds
+
+
+def test_the_python_tool_lower_bounds_are_the_same_here_and_in_the_template() -> None:
+    justfile = (ROOT / "template/justfile.jinja").read_text()
+    added = [line.split() for line in justfile.splitlines() if line.strip().startswith("uv add --dev ")]
+    assert len(added) == 1
+    template_bounds = python_tool_bounds([word.strip('"') for word in added[0][3:]])
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    groups = pyproject.get("dependency-groups")
+    assert is_mapping(groups)
+    dev = groups.get("dev")
+    assert is_list(dev)
+    assert python_tool_bounds([str(item) for item in dev]) == template_bounds
+    assert set(template_bounds) == {"basedpyright", "pytest", "ruff", "ty"}
+
+
+# The probe of the owner's record 0003: what ty must catch before basedpyright can go.
+TY_PROBE: Final = """\
+import json
+from typing import Any
+
+
+def untyped(x, y=1):
+    return x + y
+
+
+def explicit(v: Any) -> int:
+    return v.whatever
+
+
+def leak() -> int:
+    data = json.loads("{}")
+    return data["n"].oops()
+
+
+def wrong() -> int:
+    return "s"
+
+
+def takes_int(n: int) -> int:
+    return n
+
+
+def passes() -> int:
+    data = json.loads("{}")
+    m = data["m"]
+    return takes_int(m)
+"""
+
+
+def flagged_functions(probe: Path, lines: set[int]) -> set[str]:
+    """The probe's functions that contain at least one of the flagged lines."""
+    tree = ast.parse(probe.read_text())
+    return {
+        node.name
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and any(node.lineno <= line <= (node.end_lineno or 0) for line in lines)
+    }
+
+
+def concise_lines(result: subprocess.CompletedProcess[str], probe: Path) -> set[int]:
+    """Line numbers of `<file>:<line>:<column>: ...` diagnostics, the concise output of ty and ruff."""
+    prefix = f"{probe.name}:"
+    return {
+        int(line.removeprefix(prefix).split(":")[0]) for line in output(result).splitlines() if line.startswith(prefix)
+    }
+
+
+@pytest.mark.xfail(
+    reason="ty 0.0.95 misses an implicit Any carried through a variable into an argument (`passes`):"
+    " when this passes, check the other exit criteria of README's type-checking decision",
+    strict=True,
+)
+def test_ty_with_ruff_annotations_catches_every_function_basedpyright_catches(tmp_path: Path) -> None:
+    """Per function, not per line: ty reports an Any where it is returned, basedpyright where it enters."""
+    probe = tmp_path / "probe.py"
+    probe.write_text(TY_PROBE)
+    for config in ("ty.toml", "pyrightconfig.json"):
+        shutil.copy(ROOT / config, tmp_path / config)
+    tools = Path(sys.executable).parent
+    ty = run([str(tools / "ty"), "check", "--output-format", "concise", probe.name], cwd=tmp_path)
+    ruff = run(
+        [str(tools / "ruff"), "check", "--isolated", "--select", "ANN", "--output-format", "concise", probe.name],
+        cwd=tmp_path,
+    )
+    basedpyright = run([str(tools / "basedpyright"), "--outputjson", probe.name], cwd=tmp_path)
+    report: object = json.loads(basedpyright.stdout)  # pyright: ignore[reportAny] -- json is untyped; narrowed below
+    assert is_mapping(report), output(basedpyright)
+    diagnostics = report.get("generalDiagnostics")
+    assert is_list(diagnostics)
+    basedpyright_lines: set[int] = set()
+    for diagnostic in diagnostics:
+        assert is_mapping(diagnostic)
+        where = diagnostic.get("range")
+        assert is_mapping(where)
+        start = where.get("start")
+        assert is_mapping(start)
+        line = start.get("line")
+        assert isinstance(line, int)
+        basedpyright_lines.add(line + 1)
+    caught_by_basedpyright = flagged_functions(probe, basedpyright_lines)
+    # Fail loud if a tool silently checked nothing: each catches something today.
+    assert caught_by_basedpyright == {"untyped", "explicit", "leak", "wrong", "passes"}, output(basedpyright)
+    caught_by_ty = flagged_functions(probe, concise_lines(ty, probe) | concise_lines(ruff, probe))
+    assert caught_by_ty >= {"untyped", "explicit", "leak", "wrong"}, output(ty) + output(ruff)
+    assert caught_by_basedpyright - caught_by_ty == set()
 
 
 def test_existing_pyproject_is_never_overwritten(template: Path, tmp_path: Path) -> None:
@@ -358,8 +536,25 @@ def planted(python_project: Path, request: pytest.FixtureRequest) -> Iterator[Pa
         pytest.param(("src/example_project/bad.py", "import os\n"), "F401", id="lint error"),
         pytest.param(
             ("src/example_project/bad.py", "def double(x):\n    return x * 2\n"),
-            "reportMissingParameterType",
-            id="unannotated function",
+            # ruff's ANN rules, which keep this check once basedpyright goes; lint runs before typecheck.
+            "ANN001",
+            id="unannotated function, ruff",
+        ),
+        # Both checkers run even when the first fails, so each one is shown to catch it.
+        pytest.param(
+            ("src/example_project/bad.py", 'def wrong() -> int:\n    return "s"\n'),
+            "reportReturnType",
+            id="ill-typed return, basedpyright",
+        ),
+        pytest.param(
+            ("src/example_project/bad.py", 'def wrong() -> int:\n    return "s"\n'),
+            "invalid-return-type",
+            id="ill-typed return, ty",
+        ),
+        pytest.param(
+            ("src/example_project/bad.py", "from typing import Any\n\n\ndef f(v: Any) -> None:\n    pass\n"),
+            "ANN401",
+            id="explicit Any, ruff",
         ),
         pytest.param(
             ("tests/test_bad.py", "def test_fails() -> None:\n    assert sum([1, 1]) == 3\n"),

@@ -27,8 +27,9 @@ lint: _devshell
     markdownlint-cli2
     nixfmt --check flake.nix nix/*.nix
 
+# basedpyright and ty, both gates; the second runs even when the first fails
 typecheck: _devshell
-    uv run --locked basedpyright
+    status=0; uv run --locked basedpyright || status=$?; uv run --locked ty check || status=$?; exit $status
 
 # Every test, including the integration tests that build rendered projects' devShells
 test: _devshell
