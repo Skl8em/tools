@@ -119,6 +119,8 @@ Adding a language means an entry in `byLanguage` in [`nix/dev-shell.nix`](nix/de
 
 ## Decisions
 
+Decisions taken outside this repository that it must follow (type checking with ty beside basedpyright, editor extensions, git identity) are in [UPSTREAM-DECISIONS.md](UPSTREAM-DECISIONS.md), until they are applied and folded in here.
+
 - **[ANCHOR]** Configuration is distributed as a Copier template and the toolchain as a Nix flake, both versioned together in this repository.
   A dedicated Python package with its own CLI was rejected: it would re-implement copy, update and the three-way merge.
   Runtime inheritance (`extend` pointing outside the project) was rejected: configuration must live in the project.
