@@ -16,10 +16,12 @@ It is the first time the gate runs on `x86_64-linux`, and the integration tests 
 Expect it to be slow; a run time worth caching is a reason to look at a self-hosted cache before a vendor one.
 
 Done when: the workflow is green on `main`.
+Done: green on 2026-10-31 (run 41235110152, 1 min 34 s).
 
 ## 2. Tag `v0.1.0`
 
 Only after CI is green, since projects receive the tag, not `main`.
+Before it: the history rewrite of [UPSTREAM-DECISIONS](UPSTREAM-DECISIONS.md) D4, since an adopted project records the template version it came from, and preferably the template changes of D1 to D3, so the first release carries them.
 Check that `copier copy <tools> .` without `--vcs-ref` renders it.
 
 ## 3. Adopt into one real existing project
