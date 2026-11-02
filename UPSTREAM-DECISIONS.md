@@ -25,21 +25,27 @@ The probe:
 import json
 from typing import Any
 
+
 def untyped(x, y=1):
     return x + y
 
+
 def explicit(v: Any) -> int:
     return v.whatever
+
 
 def leak() -> int:
     data = json.loads("{}")
     return data["n"].oops()
 
+
 def wrong() -> int:
     return "s"
 
+
 def takes_int(n: int) -> int:
     return n
+
 
 def passes() -> int:
     data = json.loads("{}")
